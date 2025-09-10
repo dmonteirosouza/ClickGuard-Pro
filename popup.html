@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClickGuard Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 380px;
+            min-height: 500px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #FF6B00 0%, #FF8533 100%);
+            color: white;
+            padding: 0;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .status-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-active {
+            background: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .status-inactive {
+            background: #757575;
+        }
+
+        .click-counter {
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            margin: 15px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        input[type="time"] {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: white;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        input[type="time"]:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-reset {
+            background: rgba(220, 53, 69, 0.3);
+            border-color: rgba(220, 53, 69, 0.5);
+            margin-top: 10px;
+        }
+
+        .btn-reset:hover {
+            background: rgba(220, 53, 69, 0.4);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .stat-number {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 15px;
+            font-size: 10px;
+            opacity: 0.7;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">ClickGuard Pro</div>
+        <div class="subtitle">Proteção e Produtividade Digital</div>
+    </div>
+
+    <div class="content">
+        <div class="status-card">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Configurar horários</span>
+            </div>
+            <div class="click-counter" id="clickCounter">0</div>
+            <div style="text-align: center; font-size: 12px; opacity: 0.8;">
+                Cliques hoje
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="form-row">
+                <div style="flex: 1;">
+                    <label for="startWork">Entrada</label>
+                    <input type="time" id="startWork" value="09:00">
+                </div>
+                <div style="flex: 1;">
+                    <label for="lunchStart">Saída Almoço</label>
+                    <input type="time" id="lunchStart" value="12:00">
+                </div>
+            </div>
+            <div class="form-row">
+                <div style="flex: 1;">
+                    <label for="lunchEnd">Volta Almoço</label>
+                    <input type="time" id="lunchEnd" value="13:00">
+                </div>
+                <div style="flex: 1;">
+                    <label for="endWork">Saída</label>
+                    <input type="time" id="endWork" value="18:00">
+                </div>
+            </div>
+        </div>
+
+        <button class="btn" id="saveSchedule">Salvar Horários</button>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number" id="todayClicks">0</div>
+                <div class="stat-label">Hoje</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="weekClicks">0</div>
+                <div class="stat-label">Esta Semana</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="avgClicks">0</div>
+                <div class="stat-label">Média/Hora</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="workHours">0h</div>
+                <div class="stat-label">Horas Hoje</div>
+            </div>
+        </div>
+
+        <button class="btn btn-reset" id="resetStats">Resetar Estatísticas</button>
+    </div>
+
+    <div class="footer">
+        Mantenha-se produtivo e protegido • v1.0.0
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
