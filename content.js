@@ -2,35 +2,73 @@
 (function() {
     'use strict';
     
+    // Verificar se já foi carregado para evitar duplicação
+    if (window.clickguardLoaded) {
+        return;
+    }
+    window.clickguardLoaded = true;
+    
     let isTracking = false;
     let clickCount = 0;
     let lastClickTime = 0;
     const CLICK_THROTTLE = 100; // Throttle cliques para evitar spam
     
-    // Verificar status inicial
-    chrome.runtime.sendMessage({ action: 'getTrackingStatus' }, (response) => {
-        if (response && response.isTracking) {
-            startTracking();
+    // Verificar status inicial com timeout
+    function checkInitialStatus() {
+        if (!chrome.runtime) {
+            setTimeout(checkInitialStatus, 1000);
+            return;
         }
-    });
+        
+        chrome.runtime.sendMessage({ action: 'getTrackingStatus' }, (response) => {
+            if (chrome.runtime.lastError) {
+                // Tentar novamente após 2 segundos
+                setTimeout(checkInitialStatus, 2000);
+                return;
+            }
+            
+            if (response && response.isTracking) {
+                startTracking();
+            }
+        });
+    }
+    
+    // Executar verificação inicial
+    checkInitialStatus();
     
     // Escutar mensagens do background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+
+        
         switch (message.action) {
+            case 'ping':
+
+                sendResponse({ 
+                    status: 'alive', 
+                    tracking: isTracking, 
+                    url: window.location.href,
+                    clickCount: clickCount 
+                });
+                break;
             case 'startTracking':
+
                 startTracking();
+                sendResponse({ success: true, tracking: isTracking });
                 break;
             case 'stopTracking':
+
                 stopTracking();
+                sendResponse({ success: true, tracking: isTracking });
                 break;
         }
+        return true; // Manter canal de resposta aberto
     });
     
     function startTracking() {
         if (isTracking) return;
         
         isTracking = true;
-        console.log('ClickGuard Pro: Iniciando monitoramento de cliques');
+
         
         // Adicionar event listeners para diferentes tipos de cliques
         document.addEventListener('click', handleClick, true);
@@ -45,7 +83,7 @@
         if (!isTracking) return;
         
         isTracking = false;
-        console.log('ClickGuard Pro: Parando monitoramento de cliques');
+
         
         // Remover event listeners
         document.removeEventListener('click', handleClick, true);
@@ -65,8 +103,28 @@
         lastClickTime = now;
         clickCount++;
         
-        // Enviar clique para o background script
-        chrome.runtime.sendMessage({ action: 'clickDetected' });
+        // Enviar clique para o background script com timeout e retry
+        function sendClickMessage() {
+            if (!chrome.runtime) {
+
+                return;
+            }
+            
+            const timeoutId = setTimeout(() => {
+
+            }, 1000);
+            
+            chrome.runtime.sendMessage({ action: 'clickDetected' }, (response) => {
+                clearTimeout(timeoutId);
+                if (chrome.runtime.lastError) {
+
+                } else if (response && response.success) {
+
+                }
+            });
+        }
+        
+        sendClickMessage();
         
         // Log detalhado para debug (opcional)
         logClickDetails(event);
@@ -91,21 +149,20 @@
             lastClickTime = now;
             clickCount++;
             
-            chrome.runtime.sendMessage({ action: 'clickDetected' });
-        }
-    }
-    
-    function logClickDetails(event) {
-        // Log apenas se necessário para debug
-        if (window.location.hostname.includes('localhost') || 
-            window.location.hostname.includes('127.0.0.1')) {
-            console.log('Click detectado:', {
-                element: event.target.tagName,
-                className: event.target.className,
-                id: event.target.id,
-                url: window.location.href,
-                timestamp: new Date().toISOString()
-            });
+            function sendKeypressMessage() {
+                if (!chrome.runtime) {
+
+                    return;
+                }
+                
+                chrome.runtime.sendMessage({ action: 'clickDetected' }, (response) => {
+                    if (chrome.runtime.lastError) {
+
+                    }
+                });
+            }
+            
+            sendKeypressMessage();
         }
     }
     
@@ -178,20 +235,24 @@
     // Detectar scroll como atividade (opcional)
     let lastScrollTime = 0;
     window.addEventListener('scroll', () => {
-        if (!isTracking) return;
+        if (!isTracking || !chrome.runtime) return;
         
         const now = Date.now();
         if (now - lastScrollTime < 1000) return; // Throttle scroll events
         
         lastScrollTime = now;
-        chrome.runtime.sendMessage({ action: 'clickDetected' });
+        chrome.runtime.sendMessage({ action: 'clickDetected' }, () => {
+            if (chrome.runtime.lastError) {
+
+            }
+        });
     });
     
     // Detectar mouse move como atividade leve (muito throttled)
     let lastMouseMoveTime = 0;
     let mouseMoveCount = 0;
     document.addEventListener('mousemove', () => {
-        if (!isTracking) return;
+        if (!isTracking || !chrome.runtime) return;
         
         const now = Date.now();
         if (now - lastMouseMoveTime < 5000) return; // Apenas a cada 5 segundos
@@ -201,7 +262,11 @@
         
         // Contar como atividade apenas a cada 10 movimentos
         if (mouseMoveCount % 10 === 0) {
-            chrome.runtime.sendMessage({ action: 'clickDetected' });
+            chrome.runtime.sendMessage({ action: 'clickDetected' }, () => {
+                if (chrome.runtime.lastError) {
+
+                }
+            });
         }
     });
     

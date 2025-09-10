@@ -8,8 +8,6 @@ chrome.runtime.onStartup.addListener(initialize);
 chrome.runtime.onInstalled.addListener(initialize);
 
 async function initialize() {
-    console.log('ClickGuard Pro iniciado');
-    
     // Carregar configurações
     const result = await chrome.storage.sync.get(['schedule', 'isTracking']);
     currentSchedule = result.schedule;
@@ -53,23 +51,25 @@ function timeToMinutes(timeStr) {
 }
 
 async function startTracking() {
-    console.log('Iniciando tracking de cliques');
     isTracking = true;
     trackingStartTime = new Date();
     await chrome.storage.sync.set({ isTracking: true });
     
-    // Notificar content scripts
+    // Notificar content scripts em todas as abas existentes
     const tabs = await chrome.tabs.query({});
     tabs.forEach(tab => {
+        // Verificar se a aba suporta content scripts
+        if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+            return;
+        }
+        
         chrome.tabs.sendMessage(tab.id, { action: 'startTracking' }).catch(() => {
-            // Ignorar erros para tabs que não têm content script
+            // Ignorar erros silenciosamente
         });
     });
 }
 
 async function stopTracking() {
-    console.log('Parando tracking de cliques');
-    
     if (trackingStartTime) {
         // Calcular tempo trabalhado nesta sessão
         const sessionMinutes = Math.floor((new Date() - trackingStartTime) / 60000);
@@ -80,11 +80,15 @@ async function stopTracking() {
     trackingStartTime = null;
     await chrome.storage.sync.set({ isTracking: false });
     
-    // Notificar content scripts
+    // Notificar content scripts em todas as abas
     const tabs = await chrome.tabs.query({});
     tabs.forEach(tab => {
+        if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+            return;
+        }
+        
         chrome.tabs.sendMessage(tab.id, { action: 'stopTracking' }).catch(() => {
-            // Ignorar erros
+            // Ignorar erros silenciosamente
         });
     });
 }
@@ -103,22 +107,34 @@ async function updateWorkTime(minutes) {
 }
 
 // Receber cliques do content script
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.action) {
         case 'clickDetected':
             if (isTracking) {
-                await recordClick();
+                recordClick().then(() => {
+                    sendResponse({ success: true });
+                });
+            } else {
+                sendResponse({ success: false, reason: 'not tracking' });
             }
-            break;
+            return true; // Manter canal aberto para resposta assíncrona
             
         case 'scheduleUpdated':
             currentSchedule = message.schedule;
-            await checkWorkTime();
-            break;
+            checkWorkTime().then(() => {
+                sendResponse({ success: true });
+            });
+            return true;
             
         case 'getTrackingStatus':
-            sendResponse({ isTracking });
+            sendResponse({ isTracking, currentSchedule });
             break;
+            
+        case 'forceStartTracking':
+            startTracking().then(() => {
+                sendResponse({ success: true, isTracking: true });
+            });
+            return true;
     }
 });
 
@@ -151,8 +167,6 @@ async function recordClick() {
     }).catch(() => {
         // Popup pode não estar aberto
     });
-    
-    console.log(`Click registrado. Total hoje: ${dailyStats[today].clicks}`);
 }
 
 function getWeekNumber(date) {
@@ -175,6 +189,18 @@ chrome.tabs.onCreated.addListener(async (tab) => {
         setTimeout(() => {
             chrome.tabs.sendMessage(tab.id, { action: 'startTracking' }).catch(() => {
                 // Content script pode não estar pronto ainda
+            });
+        }, 2000);
+    }
+});
+
+// Gerenciar quando abas são atualizadas/recarregadas
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && isTracking && tab.url && !tab.url.startsWith('chrome://')) {
+        // Enviar mensagem para iniciar tracking na aba recarregada
+        setTimeout(() => {
+            chrome.tabs.sendMessage(tabId, { action: 'startTracking' }).catch(() => {
+                // Ignorar erros para abas que não suportam content scripts
             });
         }, 1000);
     }
@@ -204,5 +230,4 @@ async function cleanupOldData() {
     }
     
     await chrome.storage.sync.set({ dailyStats: cleanedStats });
-    console.log('Dados antigos limpos');
 }
